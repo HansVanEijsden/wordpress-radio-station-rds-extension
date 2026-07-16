@@ -51,20 +51,3 @@ The plugin extends the Radio Station's broadcast endpoint with additional fields
 - `fm_rds_ptyn`: The PTYN text
 
 Example endpoint: `/wp-json/metadata/v1/current`
-
-## Development
-
-### Local Development
-
-```bash
-# Clone repository
-git clone https://github.com/HansVanEijsden/radio-station-rds-extension.git
-
-# Install development dependencies
-composer install
-
-# Run PHPCS
-vendor/bin/phpcs --standard=WordPress .
-
-# Run PHPStan
-vendor/bin/phpstan analyse
