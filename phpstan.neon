@@ -1,0 +1,63 @@
+parameters:
+    level: 1  # Start with level 1, increase gradually
+    paths:
+        - .
+    excludePaths:
+        - vendor/*
+        - node_modules/*
+        - languages/*
+        - tests/*
+    ignoreErrors:
+        # Ignore WordPress function errors
+        - '/Function wp_.* not found/'
+        - '/Function get_.* not found/'
+        - '/Function add_action not found/'
+        - '/Function apply_filters not found/'
+        - '/Function do_action not found/'
+        - '/Function register_taxonomy not found/'
+        - '/Function register_rest_route not found/'
+        - '/Function wp_remote_get not found/'
+        - '/Function is_wp_error not found/'
+        - '/Function json_decode not found/'
+        - '/Function wp_timezone not found/'
+        - '/Function wp_get_post_terms not found/'
+        - '/Function get_post_type not found/'
+        - '/Function wp_set_post_terms not found/'
+        - '/Function wp_delete_object_term_relationships not found/'
+        - '/Function get_term_meta not found/'
+        - '/Function add_term_meta not found/'
+        - '/Function term_exists not found/'
+        - '/Function wp_insert_term not found/'
+        - '/Function get_term_by not found/'
+        - '/Function get_term not found/'
+        - '/Function get_terms not found/'
+        - '/Function get_post_meta not found/'
+        - '/Function wp_nonce_field not found/'
+        - '/Function wp_verify_nonce not found/'
+        - '/Function current_user_can not found/'
+        - '/Function wp_is_post_revision not found/'
+        - '/Function register_activation_hook not found/'
+        - '/Function register_deactivation_hook not found/'
+        - '/Function plugin_dir_path not found/'
+        - '/Function plugin_dir_url not found/'
+        - '/Function plugin_basename not found/'
+        - '/Function load_plugin_textdomain not found/'
+        - '/Function _x not found/'
+        - '/Function __ not found/'
+        - '/Function esc_attr not found/'
+        - '/Function esc_html not found/'
+        - '/Function esc_html__ not found/'
+        - '/Function defined not found/'
+        - '/Constant ABSPATH not found/'
+        - '/Constant PHP.*_/'
+        - '/Class DateTime not found/'
+        - '/Class DateTimeZone not found/'
+        # Ignore WordPress class errors
+        - '/Class Radio_Station not found/'
+        # Ignore mixed type errors (WordPress often uses mixed)
+        - '/Parameter #\d+ .* of method .* expects .* array.*, mixed given/'
+        - '/Parameter #\d+ .* of method .* expects .* string.*, mixed given/'
+        - '/Return type .* of method .* has no value type specified in iterable type array/'
+        # Ignore variable existence errors
+        - '/Variable \$.* might not be defined/'
+        - '/Access to an undefined property/'
