@@ -1,8 +1,5 @@
 # Radio Station – RDS Extension
 
-[![PHP Code Sniffer](https://github.com/HansVanEijsden/radio-station-rds-extension/actions/workflows/phpcs.yml/badge.svg)](https://github.com/HansVanEijsden/radio-station-rds-extension/actions/workflows/phpcs.yml)
-[![PHPStan](https://github.com/HansVanEijsden/radio-station-rds-extension/actions/workflows/phpstan.yml/badge.svg)](https://github.com/HansVanEijsden/radio-station-rds-extension/actions/workflows/phpstan.yml)
-[![CodeQL](https://github.com/HansVanEijsden/radio-station-rds-extension/actions/workflows/codeql.yml/badge.svg)](https://github.com/HansVanEijsden/radio-station-rds-extension/actions/workflows/codeql.yml)
 [![License](https://img.shields.io/badge/license-GPL--2.0--or--later-blue.svg)](https://www.gnu.org/licenses/gpl-2.0.html)
 [![WordPress](https://img.shields.io/badge/WordPress-6.5+-blue)](https://wordpress.org/)
 [![PHP](https://img.shields.io/badge/PHP-8.1+-blue)](https://php.net/)
