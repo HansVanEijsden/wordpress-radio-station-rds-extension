@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Radio Station – RDS Extension
  * Plugin URI:  https://github.com/HansVanEijsden/radio-station-rds-extension
- * Description: Extends the Radio Station plugin with FM-RDS-PTY and FM-RDS-PTYN taxonomies and adds them to the metadata middleware output.
+ * Description: Extends the Radio Station plugin with FM-RDS-PTY and FM-RDS-PTYN taxonomies and adds them to the REST API output.
  * Version:     1.0.1
  * Author:      Hans van Eijsden
  * Author URI:  https://www.hansvaneijsden.com
