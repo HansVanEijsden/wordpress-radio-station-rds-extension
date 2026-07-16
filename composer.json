@@ -1,5 +1,5 @@
 {
-  "name": "HansVanEijsden/radio-station-rds-extension",
+  "name": "hansvaneijsden/radio-station-rds-extension",
   "type": "wordpress-plugin",
   "description": "Extends Radio Station plugin with FM-RDS-PTY and FM-RDS-PTYN taxonomies",
   "require": {
