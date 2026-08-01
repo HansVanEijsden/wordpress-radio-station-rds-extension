@@ -12,6 +12,7 @@
  * Domain Path: /languages
  * Requires at least: 6.5
  * Requires PHP: 8.1
+ * Requires Plugins: radio-station
  * Tested up to: 6.9
  */
 

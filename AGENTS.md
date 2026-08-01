@@ -15,7 +15,7 @@ Requirements: WordPress 6.5+, PHP 8.1+, Radio Station plugin active. See [README
 find . -name "*.php" -not -path "./vendor/*" -print0 | xargs -0 -n1 php -l
 ```
 
-There is no test suite and no composer install step (dependabot tracks a hypothetical composer ecosystem). Validate changes with `php -l`.
+There is no test suite, no `composer.json`, and no composer install step. Validate changes with `php -l`.
 
 ## Architecture (single file, in order)
 

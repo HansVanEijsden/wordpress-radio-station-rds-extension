@@ -1,0 +1,17 @@
+# Dependencies
+/vendor/
+/composer.lock
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs & caches
+*.log
+wp-content/uploads/
