@@ -19,22 +19,18 @@ There is no test suite and no composer install step (dependabot tracks a hypothe
 
 ## Architecture (single file, in order)
 
-1. **Plugin header + constants** — `RSRDS_VERSION`, `RSRDS_PLUGIN_DIR`, `RSRDS_PLUGIN_URL`, `RSRDS_PLUGIN_BASENAME`
-2. **Taxonomy registration** — `fm_rds_pty` and `fm_rds_ptyn`, applied to post types `show` and `override`, each with a custom dropdown meta box (`rsrds_pty_meta_box`, `rsrds_ptyn_meta_box`)
-3. **Save handling** — `rsrds_save_single_term` enforces single-term selection (nonce + capability + allowlist checks)
-4. **REST endpoint** — `rsrds_rest_current` registers `GET /wp-json/metadata/v1/current`, calls Radio Station's `/wp-json/radio/broadcast`, merges PTY/PTYN, converts times to RFC3339, and applies temporary overrides
-5. **Activation** — `rsrds_activate` seeds the default terms via `register_activation_hook`
+1. **Plugin header + constants** — `RSRDS_VERSION`, `RSRDS_PLUGIN_DIR`, `RSRDS_PLUGIN_URL`, `RSRDS_PLUGIN_BASENAME`, `RSRDS_METADATA_CACHE_KEY`
+2. **Single source of truth for terms** — `rsrds_get_pty_terms()` (term name → PTY code) and `rsrds_get_ptyn_terms()` (plain name list). **Everything else derives from these two functions**; never hardcode term names/codes elsewhere.
+3. **Taxonomy registration** — `fm_rds_pty` and `fm_rds_ptyn`, applied to post types `show` and `override`, each with a custom dropdown meta box (`rsrds_pty_meta_box`, `rsrds_ptyn_meta_box`)
+4. **Save handling** — `rsrds_save_single_term` enforces single-term selection (nonce + capability + allowlist checks) and clears the term when an empty value is explicitly submitted
+5. **REST endpoint** — `rsrds_rest_current` registers `GET /wp-json/metadata/v1/current` (with schema `rsrds_rest_current_schema`), calls Radio Station's `/wp-json/radio/broadcast`, merges PTY/PTYN, converts times to RFC3339, applies temporary overrides, and caches the merged payload
+6. **Activation** — `rsrds_activate` seeds the default terms via `register_activation_hook`
 
-## ⚠️ Critical: Keep the 4 term lists in sync
+## ⚠️ Single source of truth for terms
 
-PTY/PTYN term names and their PTY numeric codes are **duplicated in 4 places** in `radio-station-rds-extension.php`. Any change to terms/codes **must** update all of them together, or the plugin breaks silently:
+PTY/PTYN term names and their numeric PTY codes are defined **only** in `rsrds_get_pty_terms()` and `rsrds_get_ptyn_terms()`. The meta box dropdowns (`array_keys()` / plain list), save handler allowlists, activation seeds, and the REST PTY output all derive from these functions. To add/remove/rename a term, edit only these two functions.
 
-1. **Meta box hardcoded dropdowns** — `$terms` arrays in `rsrds_pty_meta_box` / `rsrds_ptyn_meta_box`
-2. **Save handler allowlists** — `$allowed_pty` / `$allowed_ptyn` in `rsrds_save_single_term`
-3. **Activation seed terms** — `$default_pty_terms` / `$default_ptyn_terms` in `rsrds_activate`
-4. **PTY code map** — `$pty_map` in `rsrds_rest_current` (term name → numeric PTY code)
-
-Adding/removing/renaming a term means touching all 4 spots. Note the meta boxes use the term **name** (e.g. `'Pop'`) but the REST endpoint outputs the mapped numeric code (e.g. `'10'`).
+Note the meta boxes use the term **name** (e.g. `'Pop'`) but the REST endpoint outputs the mapped numeric code (e.g. `'10'`), taken from `rsrds_get_pty_terms()`.
 
 ## Conventions
 
@@ -48,5 +44,8 @@ Adding/removing/renaming a term means touching all 4 spots. Note the meta boxes 
 ## Gotchas
 
 - `rsrds_rest_current` depends on the Radio Station plugin's `/wp-json/radio/broadcast` endpoint being available; it returns `status: off-air` / `status: error` gracefully when not.
-- Date handling uses `wp_timezone()` and `DateTime::RFC3339` for `start`, `end`, and `expiry` fields. Temporary overrides are read from `temporary_override` post meta.
+- The merged payload is cached in a transient (`RSRDS_METADATA_CACHE_KEY`, 30s TTL); only successful payloads are cached, and the cache is cleared on `save_post` for `show`/`override` posts (`rsrds_clear_metadata_cache`). When testing, remember the cache may be stale for up to 30s.
+- Date handling uses `wp_timezone()` and `DateTime::RFC3339` for `start`, `end`, and `expiry` fields. Temporary overrides are read from `temporary_override` post meta; the override block is guarded so missing `start`/`end` don't cause PHP errors.
 - Term values are retrieved with `wp_get_post_terms(..., ['fields' => 'names'])` — the first element is used since selection is single-term.
+- The REST route has a declared `schema` (`rsrds_rest_current_schema`) — keep `status` enum values (`on-air`/`off-air`/`error`) in sync if you change the response shapes.
+- In `rsrds_save_single_term`, an explicitly submitted empty value clears the term; a missing key (e.g. posts saved outside the editor) is left untouched. Save logic guards `is_string()` on the submitted field to avoid array-to-string warnings.

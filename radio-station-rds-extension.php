@@ -24,6 +24,42 @@ define('RSRDS_VERSION', '1.0.1');
 define('RSRDS_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('RSRDS_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('RSRDS_PLUGIN_BASENAME', plugin_basename(__FILE__));
+define('RSRDS_METADATA_CACHE_KEY', 'rsrds_metadata_current');
+
+// --- Single source of truth for term lists ---
+// PTY terms map term name => numeric PTY code. PTYN terms are a plain list of names.
+// Everything else (meta boxes, save allowlists, activation seeds, REST output) derives from these.
+function rsrds_get_pty_terms() {
+    return [
+        'Nieuws'           => '1',
+        'Actualiteit'      => '2',
+        'Sport'            => '4',
+        'Cultuur'          => '7',
+        'Pop'              => '10',
+        'Rock'             => '11',
+        'Ontspanning'      => '12',
+        'Nationale muziek' => '26',
+        'Volksmuziek'      => '28',
+        'Gouwe Ouwe'       => '27',
+        'Overige muziek'   => '15',
+    ];
+}
+
+function rsrds_get_ptyn_terms() {
+    return [
+        'Hot AC',
+        'Politiek',
+        'Voetbal',
+        'Blues',
+        'Ballads',
+        'NL-Talig',
+        'Old Hits',
+        'SportMix',
+        'Dance',
+        'Variatie',
+        'Human',
+    ];
+}
 
 // --- Register FM-RDS-PTY taxonomy ---
 function rsrds_register_pty_taxonomy() {
@@ -83,19 +119,7 @@ add_action('init', 'rsrds_register_ptyn_taxonomy');
 
 // --- Meta box for FM-RDS-PTY ---
 function rsrds_pty_meta_box($post) {
-    $terms = [
-        'Nieuws',
-        'Actualiteit',
-        'Sport',
-        'Cultuur',
-        'Pop',
-        'Rock',
-        'Ontspanning',
-        'Nationale muziek',
-        'Volksmuziek',
-        'Gouwe Ouwe',
-        'Overige muziek',
-    ];
+    $terms = array_keys(rsrds_get_pty_terms());
 
     $current = wp_get_post_terms($post->ID, 'fm_rds_pty', ['fields' => 'names']);
     $current = $current ? $current[0] : '';
@@ -117,19 +141,7 @@ function rsrds_pty_meta_box($post) {
 
 // --- Meta box for FM-RDS-PTYN ---
 function rsrds_ptyn_meta_box($post) {
-    $terms = [
-        'Hot AC',
-        'Politiek',
-        'Voetbal',
-        'Blues',
-        'Ballads',
-        'NL-Talig',
-        'Old Hits',
-        'SportMix',
-        'Dance',
-        'Variatie',
-        'Human',
-    ];
+    $terms = rsrds_get_ptyn_terms();
 
     $current = wp_get_post_terms($post->ID, 'fm_rds_ptyn', ['fields' => 'names']);
     $current = $current ? $current[0] : '';
@@ -176,30 +188,33 @@ function rsrds_save_single_term($post_id, $post, $update) {
         return;
     }
 
-    // Allowed terms lists
-    $allowed_ptyn = [
-        'Hot AC', 'Politiek', 'Voetbal', 'Blues', 'Ballads',
-        'NL-Talig', 'Old Hits', 'SportMix', 'Dance', 'Variatie', 'Human'
-    ];
-    
-    $allowed_pty = [
-        'Nieuws', 'Actualiteit', 'Sport', 'Cultuur', 'Pop', 'Rock',
-        'Ontspanning', 'Nationale muziek', 'Volksmuziek', 'Gouwe Ouwe', 'Overige muziek'
-    ];
+    // Allowed term names, derived from the single source of truth
+    $allowed_pty  = array_keys(rsrds_get_pty_terms());
+    $allowed_ptyn = rsrds_get_ptyn_terms();
 
-    // Save PTY
-    if (!empty($_POST['tax_input']['fm_rds_pty'])) {
-        $pty_value = sanitize_text_field($_POST['tax_input']['fm_rds_pty']);
-        if (in_array($pty_value, $allowed_pty)) {
-            wp_set_post_terms($post_id, [$pty_value], 'fm_rds_pty', false);
+    // Save PTY (an explicitly empty submitted value clears the selection)
+    $pty_input = $_POST['tax_input']['fm_rds_pty'] ?? '';
+    if (is_string($pty_input)) {
+        $pty_value = sanitize_text_field($pty_input);
+        if ('' !== $pty_value) {
+            if (in_array($pty_value, $allowed_pty, true)) {
+                wp_set_post_terms($post_id, [$pty_value], 'fm_rds_pty', false);
+            }
+        } else {
+            wp_set_post_terms($post_id, [], 'fm_rds_pty');
         }
     }
 
-    // Save PTYN
-    if (!empty($_POST['tax_input']['fm_rds_ptyn'])) {
-        $ptyn_value = sanitize_text_field($_POST['tax_input']['fm_rds_ptyn']);
-        if (in_array($ptyn_value, $allowed_ptyn)) {
-            wp_set_post_terms($post_id, [$ptyn_value], 'fm_rds_ptyn', false);
+    // Save PTYN (an explicitly empty submitted value clears the selection)
+    $ptyn_input = $_POST['tax_input']['fm_rds_ptyn'] ?? '';
+    if (is_string($ptyn_input)) {
+        $ptyn_value = sanitize_text_field($ptyn_input);
+        if ('' !== $ptyn_value) {
+            if (in_array($ptyn_value, $allowed_ptyn, true)) {
+                wp_set_post_terms($post_id, [$ptyn_value], 'fm_rds_ptyn', false);
+            }
+        } else {
+            wp_set_post_terms($post_id, [], 'fm_rds_ptyn');
         }
     }
 }
@@ -207,47 +222,48 @@ add_action('save_post', 'rsrds_save_single_term', 10, 3);
 
 // --- REST endpoint: metadata/v1/current ---
 function rsrds_rest_current() {
+    // Serve a short-lived cache of the merged broadcast payload when available.
+    $cached = get_transient(RSRDS_METADATA_CACHE_KEY);
+    if (false !== $cached) {
+        return $cached;
+    }
+
     $response = wp_remote_get(site_url('/wp-json/radio/broadcast'), [
         'timeout' => 10,
     ]);
 
     if (is_wp_error($response)) {
         return [
-            'status' => 'error',
-            'message' => __('Failed to get broadcast', 'radio-station-rds-extension')
+            'status'  => 'error',
+            'message' => __('Failed to get broadcast', 'radio-station-rds-extension'),
         ];
     }
 
     $data = json_decode(wp_remote_retrieve_body($response), true);
 
-    if (empty($data['broadcast']['current_show'])) {
+    if (!is_array($data) || empty($data['broadcast']['current_show'])) {
         return ['status' => 'off-air'];
     }
 
-    $tz = wp_timezone();
+    // Consistent envelope: always expose a machine-readable status on success.
+    $data['status'] = isset($data['status']) ? $data['status'] : 'on-air';
 
-    $pty_map = [
-        'Nieuws'            => '1',
-        'Actualiteit'       => '2',
-        'Sport'             => '4',
-        'Cultuur'           => '7',
-        'Pop'               => '10',
-        'Rock'              => '11',
-        'Ontspanning'       => '12',
-        'Nationale muziek'  => '26',
-        'Volksmuziek'       => '28',
-        'Gouwe Ouwe'        => '27',
-        'Overige muziek'    => '15',
-    ];
+    $tz      = wp_timezone();
+    $pty_map = rsrds_get_pty_terms();
 
     foreach (['current_show', 'next_show'] as $key) {
-        if (empty($data['broadcast'][$key])) {
+        if (empty($data['broadcast'][$key]) || !is_array($data['broadcast'][$key])) {
             continue;
         }
 
         $show_data = &$data['broadcast'][$key];
-        $show = $show_data['show'];
-        $show_id = $show['id'];
+
+        // Defensive: Radio Station may omit show details for a time slot.
+        if (empty($show_data['show']) || !is_array($show_data['show']) || empty($show_data['show']['id'])) {
+            continue;
+        }
+
+        $show_id   = $show_data['show']['id'];
         $post_type = get_post_type($show_id);
 
         $fm_rds_pty  = wp_get_post_terms($show_id, 'fm_rds_pty', ['fields' => 'names']);
@@ -257,20 +273,23 @@ function rsrds_rest_current() {
         $show_data['fm_rds_pty']  = $pty_value;
         $show_data['fm_rds_ptyn'] = $fm_rds_ptyn ? $fm_rds_ptyn[0] : '';
 
-        $date = $show_data['date'];
-        $start_dt = new DateTime("$date {$show_data['start']}", $tz);
-        $end_dt   = new DateTime("$date {$show_data['end']}", $tz);
-        $show_data['start'] = $start_dt->format(DateTime::RFC3339);
-        $show_data['end']   = $end_dt->format(DateTime::RFC3339);
-        
-        if ($key === 'current_show') {
-            $show_data['expiry'] = $end_dt->format(DateTime::RFC3339);
+        // Convert times to RFC3339 only when all parts are present.
+        if (!empty($show_data['date']) && !empty($show_data['start']) && !empty($show_data['end'])) {
+            $date     = $show_data['date'];
+            $start_dt = new DateTime("$date {$show_data['start']}", $tz);
+            $end_dt   = new DateTime("$date {$show_data['end']}", $tz);
+            $show_data['start'] = $start_dt->format(DateTime::RFC3339);
+            $show_data['end']   = $end_dt->format(DateTime::RFC3339);
+
+            if ($key === 'current_show') {
+                $show_data['expiry'] = $end_dt->format(DateTime::RFC3339);
+            }
         }
 
         if ($post_type === 'override') {
             $override = get_post_meta($show_id, 'temporary_override', true);
-            if (is_array($override) && !empty($override['active'])) {
-                $now = new DateTime('now', $tz);
+            if (is_array($override) && !empty($override['active']) && !empty($override['start']) && !empty($override['end'])) {
+                $now   = new DateTime('now', $tz);
                 $start = new DateTime($override['start'], $tz);
                 $end   = new DateTime($override['end'], $tz);
                 if ($now >= $start && $now <= $end) {
@@ -288,40 +307,65 @@ function rsrds_rest_current() {
         }
     }
 
+    // Only cache successful payloads; a short TTL keeps term/override changes fresh.
+    set_transient(RSRDS_METADATA_CACHE_KEY, $data, 30);
+
     return $data;
 }
+
+// --- Clear the cached metadata payload when a show/override is saved ---
+function rsrds_clear_metadata_cache($post_id) {
+    if (in_array(get_post_type($post_id), ['show', 'override'])) {
+        delete_transient(RSRDS_METADATA_CACHE_KEY);
+    }
+}
+add_action('save_post', 'rsrds_clear_metadata_cache', 20);
 
 // --- Register REST endpoint ---
 add_action('rest_api_init', function() {
     register_rest_route('metadata/v1', '/current', [
-        'methods'  => 'GET',
-        'callback' => 'rsrds_rest_current',
+        'methods'             => 'GET',
+        'callback'            => 'rsrds_rest_current',
         'permission_callback' => '__return_true',
+        'schema'              => 'rsrds_rest_current_schema',
     ]);
 });
 
+function rsrds_rest_current_schema() {
+    return [
+        '$schema'    => 'http://json-schema.org/draft-04/schema#',
+        'title'      => 'metadata-current',
+        'type'       => 'object',
+        'properties' => [
+            'status' => [
+                'description' => __('Broadcast status', 'radio-station-rds-extension'),
+                'type'        => 'string',
+                'enum'        => ['on-air', 'off-air', 'error'],
+            ],
+            'message' => [
+                'description' => __('Error message when status is error', 'radio-station-rds-extension'),
+                'type'        => 'string',
+            ],
+            'broadcast' => [
+                'description' => __('Broadcast payload with current and next show, enriched with fm_rds_pty and fm_rds_ptyn', 'radio-station-rds-extension'),
+                'type'        => 'object',
+            ],
+        ],
+    ];
+}
+
 // --- Activation hook to create default terms ---
 function rsrds_activate() {
-    // Create PTYN terms
-    $default_ptyn_terms = [
-        'Hot AC', 'Politiek', 'Voetbal', 'Blues', 'Ballads',
-        'NL-Talig', 'Old Hits', 'SportMix', 'Dance', 'Variatie', 'Human'
-    ];
-
-    foreach ($default_ptyn_terms as $term_name) {
+    // Create PTYN terms from the single source of truth
+    foreach (rsrds_get_ptyn_terms() as $term_name) {
         $term = term_exists($term_name, 'fm_rds_ptyn');
         if (!$term) {
             wp_insert_term($term_name, 'fm_rds_ptyn');
         }
     }
-    
-    // Create PTY terms
-    $default_pty_terms = [
-        'Nieuws', 'Actualiteit', 'Sport', 'Cultuur', 'Pop', 'Rock',
-        'Ontspanning', 'Nationale muziek', 'Volksmuziek', 'Gouwe Ouwe', 'Overige muziek'
-    ];
 
-    foreach ($default_pty_terms as $term_name) {
+    // Create PTY terms from the single source of truth
+    foreach (array_keys(rsrds_get_pty_terms()) as $term_name) {
         $term = term_exists($term_name, 'fm_rds_pty');
         if (!$term) {
             wp_insert_term($term_name, 'fm_rds_pty');
