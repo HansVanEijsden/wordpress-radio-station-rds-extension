@@ -43,6 +43,7 @@ Note the meta boxes use the term **name** (e.g. `'Pop'`) but the REST endpoint o
 
 ## Gotchas
 
+- **VS Code "Undefined function" errors for WP core functions are false positives.** This project has no WordPress stubs and no `.vscode/` config, so the PHP language server flags every WordPress core function (`add_action`, `__()`, `esc_html()`, `wp_get_post_terms()`, `register_rest_route`, ...) as undefined. These are runtime-defined by WordPress and are NOT bugs — `php -l` is the source of truth. Do NOT "fix" them by defining local stubs in the plugin, wrapping calls in `function_exists()`, or adding `@function` PHPDoc.
 - `rsrds_rest_current` depends on the Radio Station plugin's `/wp-json/radio/broadcast` endpoint being available; it returns `status: off-air` / `status: error` gracefully when not.
 - The merged payload is cached in a transient (`RSRDS_METADATA_CACHE_KEY`, 30s TTL); only successful payloads are cached, and the cache is cleared on `save_post` for `show`/`override` posts (`rsrds_clear_metadata_cache`). When testing, remember the cache may be stale for up to 30s.
 - Date handling uses `wp_timezone()` and `DateTime::RFC3339` for `start`, `end`, and `expiry` fields. Temporary overrides are read from `temporary_override` post meta; the override block is guarded so missing `start`/`end` don't cause PHP errors.

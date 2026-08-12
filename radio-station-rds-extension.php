@@ -1,10 +1,11 @@
 <?php
+
 /**
- * Plugin Name: Radio Station – RDS Extension
+ * Plugin Name: Radio Station RDS Extension
  * Plugin URI:  https://github.com/HansVanEijsden/radio-station-rds-extension
  * Description: Extends the Radio Station plugin with FM-RDS-PTY and FM-RDS-PTYN taxonomies and adds them to the REST API output.
  * Version:     1.0.1
- * Author:      Hans van Eijsden
+ * Author:      Hans van Eijsden Consultancy
  * Author URI:  https://www.hansvaneijsden.com
  * License:     GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
@@ -30,7 +31,8 @@ define('RSRDS_METADATA_CACHE_KEY', 'rsrds_metadata_current');
 // --- Single source of truth for term lists ---
 // PTY terms map term name => numeric PTY code. PTYN terms are a plain list of names.
 // Everything else (meta boxes, save allowlists, activation seeds, REST output) derives from these.
-function rsrds_get_pty_terms() {
+function rsrds_get_pty_terms()
+{
     return [
         'Nieuws'           => '1',
         'Actualiteit'      => '2',
@@ -46,7 +48,8 @@ function rsrds_get_pty_terms() {
     ];
 }
 
-function rsrds_get_ptyn_terms() {
+function rsrds_get_ptyn_terms()
+{
     return [
         'Hot AC',
         'Politiek',
@@ -63,7 +66,8 @@ function rsrds_get_ptyn_terms() {
 }
 
 // --- Register FM-RDS-PTY taxonomy ---
-function rsrds_register_pty_taxonomy() {
+function rsrds_register_pty_taxonomy()
+{
     $labels = [
         'name'          => _x('FM-RDS-PTY', 'taxonomy general name', 'radio-station-rds-extension'),
         'singular_name' => _x('FM-RDS-PTY', 'taxonomy singular name', 'radio-station-rds-extension'),
@@ -91,7 +95,8 @@ function rsrds_register_pty_taxonomy() {
 add_action('init', 'rsrds_register_pty_taxonomy');
 
 // --- Register FM-RDS-PTYN taxonomy ---
-function rsrds_register_ptyn_taxonomy() {
+function rsrds_register_ptyn_taxonomy()
+{
     $labels = [
         'name'          => _x('FM-RDS-PTYN', 'taxonomy general name', 'radio-station-rds-extension'),
         'singular_name' => _x('FM-RDS-PTYN', 'taxonomy singular name', 'radio-station-rds-extension'),
@@ -119,16 +124,17 @@ function rsrds_register_ptyn_taxonomy() {
 add_action('init', 'rsrds_register_ptyn_taxonomy');
 
 // --- Meta box for FM-RDS-PTY ---
-function rsrds_pty_meta_box($post) {
+function rsrds_pty_meta_box($post)
+{
     $terms = array_keys(rsrds_get_pty_terms());
 
     $current = wp_get_post_terms($post->ID, 'fm_rds_pty', ['fields' => 'names']);
     $current = $current ? $current[0] : '';
-    
+
     // Nonce for security
     wp_nonce_field('rsrds_taxonomy_meta_box', 'rsrds_taxonomy_nonce');
-    
-    ?>
+
+?>
     <select name="tax_input[fm_rds_pty]" id="fm_rds_pty">
         <option value="">— <?php esc_html_e('Select PTY', 'radio-station-rds-extension'); ?> —</option>
         <?php foreach ($terms as $term) : ?>
@@ -137,20 +143,21 @@ function rsrds_pty_meta_box($post) {
             </option>
         <?php endforeach; ?>
     </select>
-    <?php
+<?php
 }
 
 // --- Meta box for FM-RDS-PTYN ---
-function rsrds_ptyn_meta_box($post) {
+function rsrds_ptyn_meta_box($post)
+{
     $terms = rsrds_get_ptyn_terms();
 
     $current = wp_get_post_terms($post->ID, 'fm_rds_ptyn', ['fields' => 'names']);
     $current = $current ? $current[0] : '';
-    
+
     // Nonce for security
     wp_nonce_field('rsrds_taxonomy_meta_box', 'rsrds_taxonomy_nonce');
-    
-    ?>
+
+?>
     <select name="tax_input[fm_rds_ptyn]" id="fm_rds_ptyn">
         <option value="">— <?php esc_html_e('Select PTYN', 'radio-station-rds-extension'); ?> —</option>
         <?php foreach ($terms as $term) : ?>
@@ -159,11 +166,12 @@ function rsrds_ptyn_meta_box($post) {
             </option>
         <?php endforeach; ?>
     </select>
-    <?php
+<?php
 }
 
 // --- Save single-term enforcement ---
-function rsrds_save_single_term($post_id, $post, $update) {
+function rsrds_save_single_term($post_id, $post, $update)
+{
     // Check autosave and revisions
     if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
         return;
@@ -179,8 +187,10 @@ function rsrds_save_single_term($post_id, $post, $update) {
     }
 
     // Check nonce
-    if (!isset($_POST['rsrds_taxonomy_nonce']) ||
-        !wp_verify_nonce($_POST['rsrds_taxonomy_nonce'], 'rsrds_taxonomy_meta_box')) {
+    if (
+        !isset($_POST['rsrds_taxonomy_nonce']) ||
+        !wp_verify_nonce($_POST['rsrds_taxonomy_nonce'], 'rsrds_taxonomy_meta_box')
+    ) {
         return;
     }
 
@@ -222,7 +232,8 @@ function rsrds_save_single_term($post_id, $post, $update) {
 add_action('save_post', 'rsrds_save_single_term', 10, 3);
 
 // --- REST endpoint: metadata/v1/current ---
-function rsrds_rest_current() {
+function rsrds_rest_current()
+{
     // Serve a short-lived cache of the merged broadcast payload when available.
     $cached = get_transient(RSRDS_METADATA_CACHE_KEY);
     if (false !== $cached) {
@@ -315,7 +326,8 @@ function rsrds_rest_current() {
 }
 
 // --- Clear the cached metadata payload when a show/override is saved ---
-function rsrds_clear_metadata_cache($post_id) {
+function rsrds_clear_metadata_cache($post_id)
+{
     if (in_array(get_post_type($post_id), ['show', 'override'])) {
         delete_transient(RSRDS_METADATA_CACHE_KEY);
     }
@@ -323,7 +335,7 @@ function rsrds_clear_metadata_cache($post_id) {
 add_action('save_post', 'rsrds_clear_metadata_cache', 20);
 
 // --- Register REST endpoint ---
-add_action('rest_api_init', function() {
+add_action('rest_api_init', function () {
     register_rest_route('metadata/v1', '/current', [
         'methods'             => 'GET',
         'callback'            => 'rsrds_rest_current',
@@ -332,7 +344,8 @@ add_action('rest_api_init', function() {
     ]);
 });
 
-function rsrds_rest_current_schema() {
+function rsrds_rest_current_schema()
+{
     return [
         '$schema'    => 'http://json-schema.org/draft-04/schema#',
         'title'      => 'metadata-current',
@@ -356,7 +369,8 @@ function rsrds_rest_current_schema() {
 }
 
 // --- Activation hook to create default terms ---
-function rsrds_activate() {
+function rsrds_activate()
+{
     // Create PTYN terms from the single source of truth
     foreach (rsrds_get_ptyn_terms() as $term_name) {
         $term = term_exists($term_name, 'fm_rds_ptyn');
