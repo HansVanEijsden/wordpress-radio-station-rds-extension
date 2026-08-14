@@ -23,7 +23,7 @@ There is no test suite, no `composer.json`, and no composer install step. Valida
 2. **Single source of truth for terms** — `rsrds_get_pty_terms()` (term name → PTY code) and `rsrds_get_ptyn_terms()` (plain name list). **Everything else derives from these two functions**; never hardcode term names/codes elsewhere.
 3. **Taxonomy registration** — `fm_rds_pty` and `fm_rds_ptyn`, applied to post types `show` and `override`, each with a custom dropdown meta box (`rsrds_pty_meta_box`, `rsrds_ptyn_meta_box`)
 4. **Save handling** — `rsrds_save_single_term` enforces single-term selection (nonce + capability + allowlist checks) and clears the term when an empty value is explicitly submitted
-5. **REST endpoint** — `rsrds_rest_current` registers `GET /wp-json/metadata/v1/current` (with schema `rsrds_rest_current_schema`), calls Radio Station's `/wp-json/radio/broadcast`, merges PTY/PTYN, converts times to RFC3339, applies temporary overrides, and caches the merged payload
+5. **REST endpoint** — an anonymous `rest_api_init` callback registers `GET /wp-json/metadata/v1/current` (callback `rsrds_rest_current`, schema `rsrds_rest_current_schema`), calls Radio Station's `/wp-json/radio/broadcast`, merges PTY/PTYN, converts times to RFC3339, applies temporary overrides, and caches the merged payload
 6. **Activation** — `rsrds_activate` seeds the default terms via `register_activation_hook`
 
 ## ⚠️ Single source of truth for terms
